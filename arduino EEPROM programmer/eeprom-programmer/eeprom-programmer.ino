@@ -52,6 +52,12 @@ void eeprom_write(int address, byte data) {
   delay(10);
 }
 
+void eeprom_write_partial(byte[] data, len) {
+  for (int addr = 0; addr <= len; addr++) {
+    eeprom_write(addr, data[addr]);
+  }
+}
+
 void eeprom_write_full(byte[] data) {
   for (int addr = 0; addr <= 2047; addr++) {
     eeprom_write(addr, data[addr]);
@@ -98,16 +104,55 @@ void setup() {
   pinMode(SHIFT_DATA, OUTPUT);
   pinMode(SHIFT_CLK, OUTPUT);
   pinMode(SHIFT_LATCH, OUTPUT);
-  pinMode(WRITE_EN, INPUT);
-  pinMode(OUT_EN, INPUT);
+  pinMode(WRITE_EN, OUTPUT);
+  pinMode(OUT_EN, OUTPUT);
+  pinMode(CHIP_EN, OUTPUT);
+  digitalWrite(CHIP_EN, LOW);
   Serial.begin(9600);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-  if('\r' == 0x0d) {
-    Serial.println("yes");
-  } else {
-    Serial.println("no");
-  }
+  byte input;
+  if(readBytes(input, 1) == 1) {
+    if(input == 0x01) {
+      byte len;
+      if(readBytes(len, 1) == 1) {
+        if(len <= 2047) {
+          serial_print_eeprom(0, len);
+        }
+        else {
+          Serial.println("Error: Invald print length.");
+        }
+      }
+      else {
+        Serial.println("Error: Invalid print length.");
+      }
+    }
+    else if(input == 0x02) {
+      byte len;
+      if(readBytes(len, 1) == 1) {
+        if(len <= 2047) {
+          byte[len] data;
+          if(readBytes(data, len) == len) {
+            write_eeprom_partial(data, len);
+          }
+          else {
+            Serial.println("Error: Invalid read data.");
+          }
+        }
+        else {
+          Serial.println("Error: Invalid read length.");
+        }
+      }
+      else {
+        Serial.println("Error: Invalid read length.");
+      }
+    }
+    else if(input == 0xFF) {
+      eeprom_erase();
+    }
+    else if(input != 0x00) {
+      Serial.println("Error: Invalid command %02x.", input);
+    }
 }
